@@ -19,18 +19,21 @@ fn send_n_get(port: &mut Box<dyn SerialPort>, sent: Option<&[u8]>, buffer: &mut 
     Ok(())
 }
 
-pub fn get_data() -> Result<f64, std::io::Error>{
+pub fn get_data() -> Result<(f64, f64, u32), std::io::Error>{
     //initialise new serial port and establish connection
     let mut port = serialport::new("/dev/ttyACM0", 115200).open()?;
     //initialise buffer
     let mut buffy = [0; 4];
-    let mut it_be = vec![];
+    let mut it_x = vec![];
+    let mut it_y = vec![];
 
     //wait for some signal, that means connection is ready
-    wait_for_answer(&mut port)?;
-    //clear input buffer so that it won't get messy
-    port.clear(serialport::ClearBuffer::Input)?;
-
+    send_n_get(&mut port, None, &mut buffy)?;
+    let pwr = u32::from_le_bytes(buffy);
+    send_n_get(&mut port, Some(&[b'm']), &mut buffy)?;
+    let r_whole = u32::from_le_bytes(buffy);
+    send_n_get(&mut port, Some(&[b'x']), &mut buffy)?;
+    it_x.push(u32::from_le_bytes(buffy));
     //repeatedly send command 'w' and print the response as integer
     loop{
         send_n_get(&mut port, None, &mut buffy)?;
@@ -38,17 +41,34 @@ pub fn get_data() -> Result<f64, std::io::Error>{
         if x == 10000{
             break;
         }
-        it_be.push(x);
+        it_x.push(x);
     }
 
-    let lenght = it_be.len();
-    let it_is = it_be[..(lenght/2+{if lenght%2 == 0{0}else{1}})].to_vec();
+    send_n_get(&mut port, Some(&[b'y']), &mut buffy)?;
+    it_y.push(u32::from_le_bytes(buffy));
+    //repeatedly send command 'w' and print the response as integer
+    loop{
+        send_n_get(&mut port, None, &mut buffy)?;
+        let y = u32::from_le_bytes(buffy);
+        if y == 10000{
+            break;
+        }
+        it_y.push(y);
+    }
 
-    let r = process(&it_is);
+    let rx = process(&it_x, pwr);
 
-    Ok(r)
+    let ry = process(&it_y, pwr);
+
+    Ok((rx*0.04, ry*0.04, r_whole))
 }
 
-fn process(what: &Vec<u32>) -> f64{
-    0.0
+fn process(what: &Vec<u32>, pwr: u32) -> f64{
+    ((
+        what
+        .iter()
+        .enumerate()
+        .map(|(i, x)| ((i as f64)-((what.len()/2) as f64)).powi(2)*(*x as f64))
+        .sum::<f64>()
+    )/(pwr as f64)).sqrt()
 }

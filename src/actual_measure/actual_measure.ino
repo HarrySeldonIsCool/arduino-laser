@@ -10,8 +10,8 @@
 
 #define STEPS 20
 
-bool go;
-int go2;
+int go;
+bool go2;
 
 void setup() {
   pinMode(X_STEP, OUTPUT);
@@ -37,31 +37,78 @@ void setup() {
   // Zahajime komunikaci s pocitacem na prenosove rychlost 115200 baudu, toto cislo je nutne take zvolit kdyz otevirame seriovy monitor.
   Serial.begin(115200);
   Serial.write(0);
+  sent(analogRead(LASER_PWR));
   go = true;
   go2 = 1;
 }
 
 void loop() {
-  if (go) {
-  int a = analogRead(LASER_PWR);
-  pohybOsy(true, X_DIR, X_STEP, go2*STEPS);
-  delay(CALL_TIME);
-  int b = analogRead(LASER_PWR);
-  pohybOsy(true, Y_DIR, Y_STEP, go2*STEPS);
-  delay(CALL_TIME);
-  int c = analogRead(LASER_PWR);
-  if (a == c){
-     if (go2 == 1){
-        go2 = -1;
-        sent(10000);
-     }
-     else{
-        go = false;
-     }
-  }
-  else if (go2 == 1){
-    sent(a+c-2*b);
-  }
+  if (Serial.available()) {
+    switch(Serial.read()){
+      case 'm':{
+        go = 0;
+        while(true){
+          int a = analogRead(LASER_PWR);
+          pohybOsy(go2, X_DIR, X_STEP, STEPS);
+          delay(CALL_TIME);
+          int c = analogRead(LASER_PWR);
+          if (a == c){
+            if (go2){
+              go2 = false;
+              pohybOsy(go2, X_DIR, X_STEP, STEPS);
+              sent(go);
+            }
+            else{
+              break;
+            }
+          }
+          go++;
+        }
+        break;
+      }
+      case 'x':{
+        while(true){
+          int a = analogRead(LASER_PWR);
+          pohybOsy(go2, X_DIR, X_STEP, STEPS);
+          delay(CALL_TIME);
+          int c = analogRead(LASER_PWR);
+          if (a == c){
+            if (go2){
+              go2 = false;
+              sent(10000);
+            }
+            else{
+              break;
+            }
+          }
+          else if (go2){
+            sent(c);
+          }
+        }
+        break;
+      }
+      case 'y':{
+        while(true){
+          int a = analogRead(LASER_PWR);
+          pohybOsy(go2, X_DIR, X_STEP, STEPS);
+          delay(CALL_TIME);
+          int c = analogRead(LASER_PWR);
+          if (a == c){
+            if (go2){
+              go2 = false;
+              sent(10000);
+            }
+            else{
+              break;
+            }
+          }
+          else if (go2){
+            sent(c);
+          }
+        }
+        break;
+      }
+    }
   }
 }
 
