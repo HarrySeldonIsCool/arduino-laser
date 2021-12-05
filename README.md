@@ -1,6 +1,6 @@
 # arduino-laser
 
-Tohle je muj zdrojak k reseni [science challenge][1], v src je několik podsložek.
+Tohle je muj zdrojak k reseni [science challenge](https://www.sciencechallenge.cz), v src je několik podsložek.
 
 ## graphs
 
@@ -22,13 +22,10 @@ Původně byl součástí arduino.rs, ale potom zabíral moc místa a tak jsem h
 
 ## math.rs
 
-Většinu této složky tvoří budování matematiky pro typ Vector, což je wraper pro Vec<f32>. Na konci je potom funkce nedler_mead, což je implementace matematické metody [stejného jména][5] pro minimalizaci hodnot nějaké křivky.
+Většinu této složky tvoří budování matematiky pro typ Vector, což je wraper pro Vec<f32>. Na konci je potom funkce nedler_mead, což je implementace matematické metody [stejného jména](https://en.wikipedia.org/wiki/Nelder–Mead_method) pro minimalizaci hodnot nějaké křivky.
 
 ## main.rs
 
 Tady už jen zavolám funkci z arduino.rs a vypíšu výsledek. Dole je taky testovací funkce, mám v plánu jí přesunout do samostatné složky.
 
 V endian_traits.rs už je jen tvorba a implementace trait pro převádění z bytů na čísla, protože normálně má každé číslo vlastní metodu (takže nemůžu psát genericky).
-
-[1] https://www.sciencechallenge.cz
-[5] https://en.wikipedia.org/wiki/Nelder–Mead_method
