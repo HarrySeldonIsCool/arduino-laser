@@ -1,14 +1,21 @@
 use serialport::SerialPort;
+use super::process::*;
+use super::endian_traits::FromEndian;
+use libm::erfcf as erfc;
+use poloto::plot;
 
-//wait until there's some data to read
-fn wait_for_answer(port: &mut Box<dyn SerialPort>) -> Result<(), std::io::Error>{
-    while port.bytes_to_read()? == 0{
-        std::thread::sleep(std::time::Duration::from_millis(50));
-    }
+enum StopOrTimes<T>{
+    Stop(T),
+    Times(u64)
+}
+
+use StopOrTimes::*;
+
+pub fn wait_for_answer(port: &mut Box<dyn SerialPort>) -> Result<(), std::io::Error>{
+    while port.bytes_to_read()? == 0{}
     Ok(())
 }
 
-//send optional array of bytes, then wait for response and put it into buffer (as much as can fit)
 fn send_n_get(port: &mut Box<dyn SerialPort>, sent: Option<&[u8]>, buffer: &mut [u8]) -> Result<(), std::io::Error>{
     port.clear(serialport::ClearBuffer::Input)?;
     if let Some(x) = sent{
@@ -19,56 +26,68 @@ fn send_n_get(port: &mut Box<dyn SerialPort>, sent: Option<&[u8]>, buffer: &mut 
     Ok(())
 }
 
-pub fn get_data() -> Result<(f64, f64, u32), std::io::Error>{
-    //initialise new serial port and establish connection
-    let mut port = serialport::new("/dev/ttyACM0", 115200).open()?;
-    //initialise buffer
-    let mut buffy = [0; 4];
-    let mut it_x = vec![];
-    let mut it_y = vec![];
-
-    //wait for some signal, that means connection is ready
-    send_n_get(&mut port, None, &mut buffy)?;
-    let pwr = u32::from_le_bytes(buffy);
-    send_n_get(&mut port, Some(&[b'm']), &mut buffy)?;
-    let r_whole = u32::from_le_bytes(buffy);
-    send_n_get(&mut port, Some(&[b'x']), &mut buffy)?;
-    it_x.push(u32::from_le_bytes(buffy));
-    //repeatedly send command 'w' and print the response as integer
-    loop{
-        send_n_get(&mut port, None, &mut buffy)?;
-        let x = u32::from_le_bytes(buffy);
-        if x == 10000{
-            break;
-        }
-        it_x.push(x);
-    }
-
-    send_n_get(&mut port, Some(&[b'y']), &mut buffy)?;
-    it_y.push(u32::from_le_bytes(buffy));
-    //repeatedly send command 'w' and print the response as integer
-    loop{
-        send_n_get(&mut port, None, &mut buffy)?;
-        let y = u32::from_le_bytes(buffy);
-        if y == 10000{
-            break;
-        }
-        it_y.push(y);
-    }
-
-    let rx = process(&it_x, pwr);
-
-    let ry = process(&it_y, pwr);
-
-    Ok((rx*0.04, ry*0.04, r_whole))
+fn send_n_get_n<T>(port: &mut Box<dyn SerialPort>, sent: Option<&[u8]>) -> Result<T, std::io::Error>
+where T: FromEndian{
+    let mut buffer = vec![0;std::mem::size_of::<T>()];
+    send_n_get(port, sent, &mut buffer[..])?;
+    Ok(T::from_le_bytes(&buffer[..]))
 }
 
-fn process(what: &Vec<u32>, pwr: u32) -> f64{
-    ((
-        what
+fn send_n_get_vec<T>(port: &mut Box<dyn SerialPort>, sent: Option<&[u8]>, stop_or_times: StopOrTimes<T>) -> Result<Vec<T>, std::io::Error>
+where T: FromEndian + PartialEq + Copy{
+    let mut x = send_n_get_n::<T>(port, sent)?;
+    let mut it_x = vec![x];
+    match stop_or_times{
+        Stop(stop) => {while x != stop{
+            x = send_n_get_n(port, Some(&[b'a']))?;
+            it_x.push(x);
+        }
+        it_x.pop();},
+        Times(times) => for _i in 1..times{
+            x = send_n_get_n(port, Some(&[b'a']))?;
+            it_x.push(x);
+        }
+    }
+    Ok(it_x)
+}
+
+pub fn get_raw(n: u32, dt: u32, dx: u32) -> Result<(Vec<f32>, f32), std::io::Error>{
+    let mut port = serialport::new("/dev/ttyACM0", 115200).open()?;
+    wait_for_answer(&mut port)?;
+    port.write(&n.to_le_bytes())?;
+    port.write(&dt.to_le_bytes())?;
+
+    let it_x = send_n_get_vec(&mut port, Some(&dx.to_le_bytes()), Stop(10000f32))?;
+
+    Ok((it_x[1..].to_vec(), it_x[0]))
+}
+
+pub fn get_res(n: u32, dt: u32, dx: u32) -> Result<f32, std::io::Error>{
+    let (it_x, pwr) = get_raw(n, dt, dx)?;
+
+    let w = it_x.len() - 2*it_x
         .iter()
         .enumerate()
-        .map(|(i, x)| ((i as f64)-((what.len()/2) as f64)).powi(2)*(*x as f64))
-        .sum::<f64>()
-    )/(pwr as f64)).sqrt()
+        .map(|(i, x)| (i, (x - pwr/2f32.exp()).abs()))
+        .min_by(|(_, x),(_, y)| x.partial_cmp(y).unwrap()).unwrap().0;
+    
+
+    let fit = process(&it_x, pwr, (w as f32)/2.0);
+
+    plot("Intensity", "x", "I(x)")
+        .line("int", it_x.iter().enumerate())
+        .line("fit", (0..it_x.len()).map(|x| (x, {
+            let p = fit[0];
+            let x_0 = fit[1];
+            let w = fit[2];
+            let b = fit[3];
+            p/2.0*erfc((x as f32 - x_0)/w)+b
+        })))
+        .xmarker(0)
+        .ymarker(0)
+        .simple_theme(poloto::upgrade_write(std::fs::File::create(std::path::Path::new("/home/davidek/projects-rust/arduino-laser/src/graphs/graph.svg"))?));
+
+    let rx = fit[2];
+
+    Ok(rx)
 }
