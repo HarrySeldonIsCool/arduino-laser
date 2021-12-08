@@ -4,7 +4,7 @@ Tohle je muj zdrojak k reseni [science challenge](https://www.sciencechallenge.c
 
 ## graphs
 
-tady jsou všechny grafy, graph1.svg je z testu, graph.svg se vytvoří při normálním spuštění.
+tady jsou všechny grafy, graph1.svg je z testu, graph.svg se vytvoří při normálním spuštění. Pardon, graph1 už byl vylepšen, postnu co nejdřív.
 
 ## krystof/ardu
 
