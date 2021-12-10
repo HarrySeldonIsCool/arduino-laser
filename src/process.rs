@@ -2,10 +2,6 @@ use super::math::*;
 use libm::erfcf as erfc;
 
 pub fn process(what: &Vec<f32>, pwr: f32, w: f32) -> Vec<f32>{
-    let mut ugly = vec![];
-    for x in what.iter(){
-        ugly.push(*x);
-    }
 
     let f = what
         .iter()
@@ -25,7 +21,7 @@ pub fn process(what: &Vec<f32>, pwr: f32, w: f32) -> Vec<f32>{
             pwr,
             (what.len() as f32)/2.0,
             w,
-            0.01
+            0.005
         ],
     )
 }

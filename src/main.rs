@@ -5,7 +5,6 @@ mod process;
 use self::arduino::*;
 
 fn main() -> Result<(), std::io::Error>{
-    //rgsl::types::MultiFitFdfSolver::new(&rgsl::types::MultiFitFdfSolverType::lmder(),43,5);
     println!("{}", get_res(100, 200, 10)?);
     Ok(())
 }
@@ -48,8 +47,9 @@ fn test1() -> Result<(), std::io::Error>{
     0.059,
     0.043,
     ];
+    let other_fit = vec![2.00560768014718, 17.4713567899936, 9.91015842217089, 0.009774003723849];
     let fit = self::process::process(&data, 2.0, 7.0);
-    println!("{:?}", fit);
+    eprintln!("{:?}", fit);
     plot("Intensity", "x", "I(x)")
         .line("int", data.iter().enumerate())
         .line("fit", (0..data.len()).map(|x| (x, {
@@ -57,6 +57,13 @@ fn test1() -> Result<(), std::io::Error>{
             let x_0 = fit[1];
             let w = fit[2];
             let b = fit[3];
+            p/2.0*erfc((x as f32 - x_0)/w)+b
+        })))
+        .line("other_fit", (0..data.len()).map(|x| (x, {
+            let p = other_fit[0];
+            let x_0 = other_fit[1];
+            let w = other_fit[2];
+            let b = other_fit[3];
             p/2.0*erfc((x as f32 - x_0)/w)+b
         })))
         .xmarker(0)
