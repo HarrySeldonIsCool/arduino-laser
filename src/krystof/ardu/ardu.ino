@@ -22,17 +22,6 @@ void setup() {
   // Zahajime komunikaci s pocitacem na prenosove rychlost 115200 baudu, toto cislo je nutne take zvolit kdyz otevirame seriovy monitor.
   Serial.begin(115200);
   
-  int prev = 0;
-  do {
-    prev = analogRead(LASER_PWR);
-    pohybOsy(false, X_DIR, X_STEP, 10);
-    delay(CALL_TIME);
-  } while(prev != analogRead(LASER_PWR));
-  do {
-    prev = analogRead(LASER_PWR);
-    pohybOsy(false, Y_DIR, Y_STEP, 10);
-    delay(CALL_TIME);
-  } while(prev != analogRead(LASER_PWR));
   Serial.write(0);
   
 }
@@ -138,12 +127,14 @@ int getPeriod(int n, int dt){ //vrátí ((doba jednoho kmitu)/dt), tedy kolikrat
 void measure(int n, int dt, int dx){
   int period = getPeriod(800, dt);
   for (int x = 0; x < n; x++){
-    double power = measurePower(period, dt);
-    Serial.write((char*)&power);
+    float power = measurePower(period, dt);
+    Serial.write((byte*)&power, 4);
     pohybX(false, dx);
   }
+  stop_transfer();
 }
 
-void stop_transmit(){
-  Serial.write((char*)&10000.2);
+void stop_transfer(){
+  float stop = 10000;
+  Serial.write((byte*)&stop, 4);
 }
