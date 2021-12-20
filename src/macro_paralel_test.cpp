@@ -48,7 +48,7 @@ typedef short pt;
 #define HNUS(stop, ab, ugly, ar, ...)                           \
     if (*(ab) != 1) {                                           \
         pt* abb ## ugly = ab;                                   \
-        unsigned long* epravedpo ## ugly = acb;                 \
+        time_t* epravedpo ## ugly = acb;                 \
         BEGIN_PT(*(ab))                                         \
         ar;                                                     \
         END_PT(*(ab), ugly)                                     \
@@ -58,7 +58,7 @@ typedef short pt;
 
 #define PARALEL(n, ...) {                                       \
     pt ab[n] = { };                                             \
-    unsigned long acb[n] = { };                                 \
+    time_t acb[n] = { };                                 \
     bool stop = true;                                           \
     while(stop){                                                \
         stop = false;                                           \
