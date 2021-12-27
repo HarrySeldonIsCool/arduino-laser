@@ -9,6 +9,21 @@
 // rozsah na merce je nastaven jako 0 az 30uW (mikro wattu)
 #define LASER_PWR A3
 
+#define send(x) Serial.write((byte*)&(x), sizeof(x))
+
+#define send_array(x, y) for(int i = 0; i < (y); i++){send(x);while(!Serial.available());Serial.read();}
+
+#define derive_recieve(x) x recieve(){byte _my_buffer_intern[sizeof(x)] = { }; Serial.readBytes(_my_buffer_intern, sizeof(x)); return *((x*) _my_buffer_intern);}
+
+#define send_array_paralel(x, y) for(int i = 0; i < (y); i++){send(x);WAIT_UNTIL(Serial.available());Serial.read();}
+
+derive_recieve(int)
+
+struct time_stamp{
+  unsigned long time;
+  float a;
+};
+
 void setup() {
   // nastavení smeru pro vsechny piny
   pinMode(X_STEP, OUTPUT);
@@ -18,7 +33,7 @@ void setup() {
   pinMode(ENABLE, OUTPUT);
   // povoleni rizeni pro vsechny drivery
   digitalWrite(ENABLE, LOW);
-
+ 
   // Zahajime komunikaci s pocitacem na prenosove rychlost 115200 baudu, toto cislo je nutne take zvolit kdyz otevirame seriovy monitor.
   Serial.begin(115200);
   
@@ -28,22 +43,22 @@ void setup() {
 
 void loop(){
   if (Serial.available()){
-  int n = *(int*)Serial.readString().c_str();
-  if (n == -1){
-    pohybX(true, 1000);
-    return;
-  }
-  while (!Serial.available());
-  int dt = *(int*)Serial.readString().c_str();
-  while (!Serial.available());
-  int dx = *(int*)Serial.readString().c_str();
-  measure(n, dt, dx);
+    int n = recieve();
+    if (n == -1){
+      pohybX(true, 1000);
+      return;
+    }
+    while (!Serial.available());
+    int dt = recieve();
+    while (!Serial.available());
+    int dx = recieve();
+    measure(n, dt, dx);
   }
 }
 
-void pohybOsy(boolean smer, byte dirPin, byte stepPin, int kroky) {
+void pohybOsy(bool smer, byte dirPin, byte stepPin, int kroky) {
   // zapis smeru na prislusny pin DIR
-  digitalWrite (dirPin, smer);
+  digitalWrite(dirPin, smer);
   delay(50);
   // smycka pro provedeni predaneho mnozstvíi kroku
   for (int i = 0; i < kroky; i++) {
@@ -55,7 +70,7 @@ void pohybOsy(boolean smer, byte dirPin, byte stepPin, int kroky) {
 }
 //odsud nahoru je zkopirovane z ukazkoveho kodu
 
-void pohybX(boolean smer, int vzdalenost){ //vzdalenost v um
+void pohybX(bool smer, int vzdalenost){ //vzdalenost v um
   pohybOsy(smer, X_DIR, X_STEP, (int)(vzdalenost/2));
 }
 
@@ -63,13 +78,13 @@ int anPwr(){
   return analogRead(LASER_PWR);
 }
 
-double measurePower(int n, int dt){  //vypočítá pruůměr z n měření za čas n * dt
+double measurePower(int n, int dt){  //vypočítá průměr z n měření za čas n * dt
   unsigned long sum = 0;
   unsigned long time = 0;
   for (int i = 0; i < n; i++){
     time = micros();
     sum += anPwr();
-    delayMicroseconds(dt+time-micros()-12);
+    delayMicroseconds(dt-micros()+time-12);
   }
   return sum / (double)n;
 }
@@ -127,14 +142,16 @@ int getPeriod(int n, int dt){ //vrátí ((doba jednoho kmitu)/dt), tedy kolikrat
 void measure(int n, int dt, int dx){
   int period = getPeriod(800, dt);
   for (int x = 0; x < n; x++){
-    float power = measurePower(period, dt);
-    Serial.write((byte*)&power, 4);
+    unsigned long time = micros();
+    time_stamp a = {micros(), (float)anPwr()};
+    send(a);
     pohybX(false, dx);
+    delayMicroseconds(dt+time-micros()-12);
   }
   stop_transfer();
 }
 
 void stop_transfer(){
-  float stop = 10000;
-  Serial.write((byte*)&stop, 4);
+  time_stamp stop = {0,10000.0};
+  send(stop);
 }

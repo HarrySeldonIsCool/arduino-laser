@@ -128,28 +128,28 @@ impl<'a> std::iter::Sum<&'a Vector> for Vector{
 
 pub fn nedler_mead(f: &[Box<dyn Fn(Vec<f32>) -> f32>], first_est: &[f32]) -> Vec<f32>{
     let now = std::time::SystemTime::now();
-    let mut simplex = vec![Vector(first_est.to_vec()), Vector(first_est.iter().map(|x| x+0.1).collect()), Vector(first_est.iter().map(|x| x*1.1).collect()), Vector(first_est.iter().enumerate().map(|(i, x)| x+0.2*(i % 2) as f32-0.1).collect())];
+    let mut simplex = vec![Vector(first_est.to_vec()), Vector(first_est.iter().map(|x| x+0.1).collect()), Vector(first_est.iter().map(|x| x*1.1).collect()), Vector(first_est.iter().enumerate().map(|(i, x)| x+0.2*(i % 2) as f32-0.1).collect()), Vector(first_est.iter().map(|x| x-0.1).collect()), Vector(first_est.iter().map(|x| x*0.9).collect()), Vector(first_est.iter().map(|x| x+0.05).collect())];
     let real_f = |a: Vec<f32>| f.iter().map(|x| x(a.clone())*x(a.clone())).sum::<f32>();
     for _i in 0..3000{
         simplex.sort_unstable_by(|a, b| real_f(a.0.clone()).partial_cmp(&real_f(b.0.clone())).unwrap());
-        let x_0 = &simplex[..3].iter().sum::<Vector>()/3.0;
-        let x_r = &(&x_0*2.0)-&simplex[3];
+        let x_0 = &simplex[..6].iter().sum::<Vector>()/3.0;
+        let x_r = &(&x_0*2.0)-&simplex[6];
         if real_f(simplex.iter().min_by(|a, b| real_f(a.0.clone()).partial_cmp(&real_f(b.0.clone())).unwrap()).unwrap().0.clone()) < 0.01{
             break;
         }
         if real_f(simplex[0].0.clone()) > real_f(x_r.0.clone()){
             let x_e = &(&x_r*2.0)-&x_0;
             if real_f(x_r.0.clone()) > real_f(x_e.0.clone()){
-                simplex[3] = x_e;
+                simplex[6] = x_e;
             }
             else{
-                simplex[3] = x_r;
+                simplex[6] = x_r;
             }
         }
-        else if real_f(simplex[2].0.clone()) < real_f(x_r.0.clone()){
-            let x_c = &(&x_0+&simplex[3])/2.0;
-            if real_f(x_c.0.clone()) < real_f(simplex[3].0.clone()){
-                simplex[3] = x_c;
+        else if real_f(simplex[5].0.clone()) < real_f(x_r.0.clone()){
+            let x_c = &(&x_0+&simplex[6])/2.0;
+            if real_f(x_c.0.clone()) < real_f(simplex[6].0.clone()){
+                simplex[6] = x_c;
             }
             else{
                 let x_1 = simplex[0].clone();
@@ -157,7 +157,7 @@ pub fn nedler_mead(f: &[Box<dyn Fn(Vec<f32>) -> f32>], first_est: &[f32]) -> Vec
             }
         }
         else{
-            simplex[3] = x_r;
+            simplex[6] = x_r;
         }
     }
     eprintln!("{}", std::time::SystemTime::now().duration_since(now).unwrap().as_secs_f64());

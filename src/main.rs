@@ -5,69 +5,7 @@ mod process;
 use self::arduino::*;
 
 fn main() -> Result<(), std::io::Error>{
-    println!("{}", get_res(100, 200, 10)?);
-    Ok(())
-}
-
-#[test]
-fn test1() -> Result<(), std::io::Error>{
-    use poloto::plot;
-    use libm::erfcf as erfc;
-    let data = vec![2.0,
-    1.99,
-    1.97,
-    1.96,
-    1.95,
-    1.93,
-    1.92,
-    1.9,
-    1.87,
-    1.82,
-    1.75,
-    1.7,
-    1.55,
-    1.46,
-    1.37,
-    1.27,
-    1.17,
-    1.06,
-    0.944,
-    0.84,
-    0.742,
-    0.64,
-    0.536,
-    0.451,
-    0.372,
-    0.296,
-    0.233,
-    0.183,
-    0.142,
-    0.108,
-    0.08,
-    0.059,
-    0.043,
-    ];
-    let other_fit = vec![2.00560768014718, 17.4713567899936, 9.91015842217089, 0.009774003723849];
-    let fit = self::process::process(&data, 2.0, 7.0);
-    eprintln!("{:?}", fit);
-    plot("Intensity", "x", "I(x)")
-        .line("int", data.iter().enumerate())
-        .line("fit", (0..data.len()).map(|x| (x, {
-            let p = fit[0];
-            let x_0 = fit[1];
-            let w = fit[2];
-            let b = fit[3];
-            p/2.0*erfc((x as f32 - x_0)/w)+b
-        })))
-        .line("other_fit", (0..data.len()).map(|x| (x, {
-            let p = other_fit[0];
-            let x_0 = other_fit[1];
-            let w = other_fit[2];
-            let b = other_fit[3];
-            p/2.0*erfc((x as f32 - x_0)/w)+b
-        })))
-        .xmarker(0)
-        .ymarker(0)
-        .simple_theme(poloto::upgrade_write(std::fs::File::create(std::path::Path::new("/home/davidek/projects-rust/arduino-laser/src/graphs/graph1.svg"))?));
+    //println!("{}", get_res(100, 200, 10)?);
+    test_struct()?;
     Ok(())
 }

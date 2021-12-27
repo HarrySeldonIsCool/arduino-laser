@@ -9,3 +9,4 @@ edition = "2021"
 serialport = "4.0.1"
 poloto = "2.20.4"
 libm = "0.2.1"
+serial-derive = { path = "serial-derive" }
