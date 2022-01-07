@@ -1,3 +1,6 @@
+#include <math.h>
+#include <MsgPack.h>
+
 #define ENABLE 8
 #define X_STEP 2
 #define Y_STEP 3
@@ -8,20 +11,35 @@
 // pin na ktery je privedena analogova hodnota z mereni vykonu laseru
 // rozsah na merce je nastaven jako 0 az 30uW (mikro wattu)
 #define LASER_PWR A3
+#define send(x) {\
+  MsgPack::Packer packer; \
+  packer.serialize(x); \
+  unsigned int len = packer.size(); \
+  Serial.write((byte*)&len, 2);\
+  Serial.write(packer.data(), packer.size());\
+}
 
-#define send(x) Serial.write((byte*)&(x), sizeof(x))
+#define derive_recieve(x) x recieve_ ## x(){\
+  byte _my_buffer_intern[2] = { }; \
+  Serial.readBytes(_my_buffer_intern, 2);\
+  MsgPack::Unpacker unpacker; \
+  byte* _my_buffer_intern1 = new byte[*(unsigned*)&_my_buffer_intern];\
+  Serial.readBytes(_my_buffer_intern1, *(unsigned*)&_my_buffer_intern);\
+  return *((x*) _my_buffer_intern);\
+}
+
+derive_recieve(byte);
+derive_recieve(uint8_t);
 
 #define send_array(x, y) for(int i = 0; i < (y); i++){send(x);while(!Serial.available());Serial.read();}
 
-#define derive_recieve(x) x recieve(){byte _my_buffer_intern[sizeof(x)] = { }; Serial.readBytes(_my_buffer_intern, sizeof(x)); return *((x*) _my_buffer_intern);}
-
-#define send_array_paralel(x, y) for(int i = 0; i < (y); i++){send(x);WAIT_UNTIL(Serial.available());Serial.read();}
-
 derive_recieve(int)
 
-struct time_stamp{
+struct time_n_place_stamp{
   unsigned long time;
+  long long place;
   float a;
+  MSGPACK_DEFINE(time, place, a);
 };
 
 void setup() {
@@ -43,15 +61,15 @@ void setup() {
 
 void loop(){
   if (Serial.available()){
-    int n = recieve();
+    int n = recieve_int();
     if (n == -1){
       pohybX(true, 1000);
       return;
     }
     while (!Serial.available());
-    int dt = recieve();
+    int dt = recieve_int();
     while (!Serial.available());
-    int dx = recieve();
+    int dx = recieve_int();
     measure(n, dt, dx);
   }
 }
@@ -88,11 +106,14 @@ double measurePower(int n, int dt){  //vypočítá průměr z n měření za ča
   }
   return sum / (double)n;
 }
+struct neco_je{
+  float a_0;
+  float n_0;
+  float s_0;
+};
 
-int getPeriod(int n, int dt){ //vrátí ((doba jednoho kmitu)/dt), tedy kolikrat zmerit vykon s rozdilem casu dt
-//je zvlastni, ze pro ruzna dt je (getPeriod(n, dt) * dt)(, coz je vypocitana doba kmitu) ruzna, asi kvuli pomalosti arduina
-//taky je zvlastni, ze prvni 3 az pet mereni vykonu funkci measurePower je vykon vzdycky mensi
-  unsigned* data = new unsigned[n]; //naměřený výkon
+struct neco_je getPeriod(int n, int dt){
+  unsigned* data = new unsigned[n];
   float mean = 0; //průměr
   unsigned long time = 0;
   for (int t = 0; t < n; t++){
@@ -106,6 +127,9 @@ int getPeriod(int n, int dt){ //vrátí ((doba jednoho kmitu)/dt), tedy kolikrat
 
   unsigned currentMax = 0; //nejvyšší hodnota při daném kmitu
   unsigned currentMaxT; //při kolikátém měření naměřil nejvyšší hodnotu při současném kmitu kmitu
+  unsigned currentMin = 10000;
+  unsigned previousMax;
+  unsigned neco1 = 0;
   unsigned firstMaxT; //při kolikátém měření naměřil nejvyšší hodnotu při prvním kmitu
   unsigned lastMaxT; //při kolikátém měření naměřil nejvyšší hodnotu při posledním kmitu
   unsigned count = 0; //počet kmitů
@@ -117,6 +141,7 @@ int getPeriod(int n, int dt){ //vrátí ((doba jednoho kmitu)/dt), tedy kolikrat
           firstMaxT = currentMaxT;
         }
         lastMaxT = currentMaxT;
+        previousMax = currentMax;
         currentMax = 0;
         count++;
       }
@@ -125,25 +150,33 @@ int getPeriod(int n, int dt){ //vrátí ((doba jednoho kmitu)/dt), tedy kolikrat
       currentMax = val;
       currentMaxT = t;
     }
+    if (val > mean){
+      if (currentMin != 10000){
+        neco1 += previousMax - currentMin;
+      }
+    }
+    else if (val < currentMin){
+      currentMin = val;
+    }
   }
   if (firstMaxT == lastMaxT){
     Serial.write("not enough data");
   }
-  /*Serial.write((char*)&(count-2));
-  Serial.write((char*)&firstMaxT);
-  Serial.write((char*)&lastMaxT);*/
 
-  int period = dt*(lastMaxT - firstMaxT) / (count - 2);
-  //Serial.write((char*)&period);
+  float period = (float)dt*((float)lastMaxT - (float)firstMaxT) / (float)(count - 2);
   delete[] data;
-  return period;
+  return {(float)neco1/(float)(count-2),2*PI/(float)period,fmod((float)time-(float)dt*(float)(n-lastMaxT), (float)period)*(float)period/2/PI};
 }
 
 void measure(int n, int dt, int dx){
-  int period = getPeriod(800, dt);
+  neco_je period = getPeriod(800, dt);
+  send(period.a_0);
+  send(period.n_0);
+  send(period.s_0);
+
   for (int x = 0; x < n; x++){
     unsigned long time = micros();
-    time_stamp a = {micros(), (float)anPwr()};
+    time_n_place_stamp a = {time, x*dx,(float)anPwr()};
     send(a);
     pohybX(false, dx);
     delayMicroseconds(dt+time-micros()-12);
@@ -152,6 +185,6 @@ void measure(int n, int dt, int dx){
 }
 
 void stop_transfer(){
-  time_stamp stop = {0,10000.0};
+  time_n_place_stamp stop = {0,0,10000.0};
   send(stop);
 }

@@ -19,7 +19,7 @@ macro_rules! from_end {
     )*};
 }
 
-from_end!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64);
+from_end!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, usize);
 
 pub trait ToEndian{
     fn to_le_byte_vec(self) -> Vec<u8>;
@@ -40,24 +40,23 @@ macro_rules! to_end {
     )*};
 }
 
-to_end!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64);
+to_end!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, usize);
 
 pub trait Serial{
     fn deser(buffer: &[u8]) -> Self;
-    fn ser(self) -> Vec<u8>;
+    fn ser(&self) -> Vec<u8>;
 }
 
 macro_rules! serial_imp {
-    ($($target:ty),*) => {$(
-        impl Serial for $target{
-            fn deser(buffer: &[u8]) -> Self{
-                <$target>::from_le_byte_slice(buffer)
-            }
-            fn ser(self) -> Vec<u8>{
-                self.to_le_byte_vec()
-            }
+    ($($target:ty),*) => {$(impl Serial for $target {
+        fn deser(buffer: &[u8]) -> Self{
+            rmp_serde::from_read(buffer).unwrap()
         }
+        fn ser(&self) -> ::std::vec::Vec<u8>{
+            rmp_serde::to_vec(self).unwrap()
+        }
+    }
     )*};
 }
 
-serial_imp!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64);
+serial_imp!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, usize, Vec<u8>);

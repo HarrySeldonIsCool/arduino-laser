@@ -1,8 +1,8 @@
 use super::math::*;
-use super::arduino::TimeStamp;
+use super::arduino::TimenPlaceStamp;
 use libm::{erfcf as erfc, sinf as sin};
 
-pub fn process(what: &Vec<TimeStamp>, pwr: f32, w: f32, a_0: f32, n_0: f32, s_0: f32) -> Vec<f32>{
+pub fn process(what: &Vec<TimenPlaceStamp>, pwr: f32, w: f32, a_0: f32, n_0: f32, s_0: f32) -> Vec<f32>{
 
     let f = what
         .iter()

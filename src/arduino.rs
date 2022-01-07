@@ -1,9 +1,11 @@
 use serialport::SerialPort;
 use super::process::*;
-use super::endian_traits::Serial;
+use super::endian_traits::{Serial, FromEndian, ToEndian};
 use libm::erfcf as erfc;
 use poloto::plot;
 use serial_derive::Serial;
+use serde_derive::{Serialize, Deserialize};
+
 enum StopOrTimes<T>{
     Stop(T),
     Times(u64)
@@ -11,10 +13,10 @@ enum StopOrTimes<T>{
 
 use StopOrTimes::*;
 
-#[derive(Debug, Copy, Clone, Serial, PartialEq)]
-#[repr(packed)]
-pub struct TimeStamp{
+#[derive(Debug, Copy, Clone, Serial, PartialEq, Serialize, Deserialize, Default)]
+pub struct TimenPlaceStamp{
     pub time: u32,
+    pub place: i64,
     pub a: f32
 }
 
@@ -33,22 +35,24 @@ fn send_n_get(port: &mut Box<dyn SerialPort>, sent: Option<&[u8]>, buffer: &mut 
 }
 
 fn send_n_get_n<T, U>(port: &mut Box<dyn SerialPort>, sent: Option<U>) -> Result<T, std::io::Error>
-where T: Serial, U: Serial{
-    let mut buffer = vec![0;std::mem::size_of::<T>()];
-    let help;
+where T: Serial + Default, U: Serial{
+    let mut buffer = vec![0;2];
+    let mut help;
     let real_sent = match sent{
-        Some(x) => {help = x.ser(); Some(&help[..])},
+        Some(x) => {help = x.ser(); help = [(help.len() as u16).ser(), help].concat(); Some(&help[..])},
         None => None
     };
     send_n_get(port, real_sent, &mut buffer)?;
-    Ok(T::deser(&buffer))
+    let mut buffer1 = vec![0;u16::from_le_byte_slice(&buffer) as usize];
+    port.read_exact(&mut buffer1)?;
+    Ok(T::deser(&buffer1))
 }
 
 pub fn test_struct() -> Result<(), std::io::Error>{
-    let mut port = serialport::new("/dev/ttyACM1", 115200).timeout(std::time::Duration::from_secs(1)).open()?;
+    let mut port = serialport::new("/dev/ttyACM3", 115200).timeout(std::time::Duration::from_secs(1)).open()?;
     wait_for_answer(&mut port)?;
     loop{
-    let a: TimeStamp = send_n_get_n::<TimeStamp, u8>(&mut port, None)?;
+    let a: TimenPlaceStamp = send_n_get_n::<TimenPlaceStamp, u8>(&mut port, None)?;
     //let a: i32 = i32::from_le_bytes(buffer);
     println!("{:?}", a);
     //println!("{}", std::mem::size_of::<Rec>());
@@ -57,7 +61,7 @@ pub fn test_struct() -> Result<(), std::io::Error>{
 }
 
 fn send_n_get_vec<T, U>(port: &mut Box<dyn SerialPort>, sent: Option<U>, stop_or_times: StopOrTimes<T>) -> Result<Vec<T>, std::io::Error>
-where T: Serial + PartialEq + Copy, U: Serial + PartialEq + Copy{
+where T: Serial + PartialEq + Copy + Default, U: Serial + PartialEq + Copy{
     let mut x = send_n_get_n(port, sent)?;
     let mut it_x = vec![x];
     match stop_or_times{
@@ -74,17 +78,19 @@ where T: Serial + PartialEq + Copy, U: Serial + PartialEq + Copy{
     Ok(it_x)
 }
 
-pub fn get_raw(n: u32, dt: u32, dx: u32) -> Result<(Vec<TimeStamp>, f32, f32, f32, f32), std::io::Error>{
+pub fn get_raw(n: u32, dt: u32, dx: u32) -> Result<(Vec<TimenPlaceStamp>, f32, f32, f32, f32), std::io::Error>{
     let mut port = serialport::new("/dev/ttyACM0", 115200).timeout(std::time::Duration::from_secs(1)).open()?;
     wait_for_answer(&mut port)?;
     port.write(&n.to_le_bytes())?;
+    std::thread::sleep(std::time::Duration::from_millis(200));
     port.write(&dt.to_le_bytes())?;
+    std::thread::sleep(std::time::Duration::from_millis(200));
 
     let a_0 = send_n_get_n(&mut port, Some(dx))?;
     let n_0 = send_n_get_n::<f32, u8>(&mut port, None)?;
     let s_0 = send_n_get_n::<f32, u8>(&mut port, None)?;
 
-    let it_x = send_n_get_vec::<TimeStamp, u8>(&mut port, None, Stop(TimeStamp{time: 0, a: 10000.0}))?;
+    let it_x = send_n_get_vec::<TimenPlaceStamp, u8>(&mut port, None, Stop(TimenPlaceStamp{time: 0, place: 0, a: 10000.0}))?;
 
     Ok((it_x[1..].to_vec(), it_x[0].a, a_0, n_0, s_0))
 }
@@ -114,7 +120,5 @@ pub fn get_res(n: u32, dt: u32, dx: u32) -> Result<f32, std::io::Error>{
         .ymarker(0)
         .simple_theme(poloto::upgrade_write(std::fs::File::create(std::path::Path::new("/home/davidek/projects-rust/arduino-laser/src/graphs/graph.svg"))?));
 
-    let rx = fit[2];
-
-    Ok(rx)
+    Ok(fit[2])
 }
