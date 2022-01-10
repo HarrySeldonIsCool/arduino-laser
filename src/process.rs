@@ -6,8 +6,7 @@ pub fn process(what: &Vec<TimenPlaceStamp>, pwr: f32, w: f32, a_0: f32, n_0: f32
 
     let f = what
         .iter()
-        .enumerate()
-        .map(|(x, &i)| Box::new(move|a: Vec<f32>| {
+        .map(|&i| Box::new(move|a: Vec<f32>| {
             let p = a[0];
             let x_0 = a[1];
             let w = a[2];
@@ -15,7 +14,7 @@ pub fn process(what: &Vec<TimenPlaceStamp>, pwr: f32, w: f32, a_0: f32, n_0: f32
 	        let neco = a[4];
 	        let n = a[5];
 	        let s = a[6];
-            i.a-p/2.0*erfc((x as f32 - x_0)/w)-b-neco*sin(n*(i.time as f32+s))
+            i.a-p/2.0*erfc((i.place as f32 - x_0)/w)-b-neco*sin(n*(i.time as f32+s))
         }) as Box<dyn Fn(Vec<f32>) -> f32>)
         .collect::<Vec<Box<dyn Fn(Vec<f32>) -> f32>>>();
 

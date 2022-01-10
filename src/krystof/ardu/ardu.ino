@@ -20,6 +20,7 @@
 }
 
 #define derive_recieve(x) x recieve_ ## x(){\
+  while(!Serial.available());
   byte _my_buffer_intern[2] = { }; \
   Serial.readBytes(_my_buffer_intern, 2);\
   MsgPack::Unpacker unpacker; \
@@ -61,9 +62,16 @@ void setup() {
     delay(1);
     neco = anPwr();
     delay(1);
-    pohybX(false, 20);
+    pohybX(true, 20);
   }while(neco != anPwr());
  
+  do{
+    delay(1);
+    neco = anPwr();
+    delay(1);
+    pohybY(true, 20);
+  }while(neco != anPwr());
+
   // Zahajime komunikaci s pocitacem na prenosove rychlost 115200 baudu, toto cislo je nutne take zvolit kdyz otevirame seriovy monitor.
   Serial.begin(115200);
   
@@ -101,7 +109,11 @@ void pohybOsy(bool smer, byte dirPin, byte stepPin, int kroky) {
 //odsud nahoru je zkopirovane z ukazkoveho kodu
 
 void pohybX(bool smer, int vzdalenost){ //vzdalenost v um
-  pohybOsy(smer, X_DIR, X_STEP, (int)(vzdalenost/2));
+  pohybOsy(smer, X_DIR, X_STEP, (int)(vzdalenost >> 1));
+}
+
+void pohybY(bool smer, int vzdalenost){ //vzdalenost v um
+  pohybOsy(smer, Y_DIR, Y_STEP, (int)(vzdalenost >> 1));
 }
 
 int anPwr(){
