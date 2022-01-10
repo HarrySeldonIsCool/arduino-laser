@@ -25,7 +25,10 @@
   MsgPack::Unpacker unpacker; \
   byte* _my_buffer_intern1 = new byte[*(unsigned*)&_my_buffer_intern];\
   Serial.readBytes(_my_buffer_intern1, *(unsigned*)&_my_buffer_intern);\
-  return *((x*) _my_buffer_intern);\
+  unpacker.feed(_my_buffer_intern1, *(unsigned*)&_my_buffer_intern);\
+  x neco_neco_neco_jinyho;\
+  unpacker.deserialize(neco_neco_neco_jinyho);\
+  return neco_neco_neco_jinyho;\
 }
 
 derive_recieve(byte);
@@ -51,6 +54,15 @@ void setup() {
   pinMode(ENABLE, OUTPUT);
   // povoleni rizeni pro vsechny drivery
   digitalWrite(ENABLE, LOW);
+
+  int neco;
+
+  do{
+    delay(1);
+    neco = anPwr();
+    delay(1);
+    pohybX(false, 20);
+  }while(neco != anPwr());
  
   // Zahajime komunikaci s pocitacem na prenosove rychlost 115200 baudu, toto cislo je nutne take zvolit kdyz otevirame seriovy monitor.
   Serial.begin(115200);

@@ -40,10 +40,13 @@ typedef short pt;
 #define EXPAND2(...) EXPAND1(EXPAND1(EXPAND1(EXPAND1(__VA_ARGS__))))
 #define EXPAND1(...) __VA_ARGS__
 
+#define DISAMB
+
 #define HNUS_ZNOVA() HNUS
 
 #define HNUS(stop, ab, ugly, ar, ...)                           \
     if (*(ab) != 1) {                                           \
+        blb = PP_NARG(__VA_ARGS__); \
         pt* abb ## ugly = ab;                                   \
         time_t* epravedpo ## ugly = acb;                 \
         BEGIN_PT(*(ab))                                         \
@@ -54,6 +57,7 @@ typedef short pt;
     MY_VA_OPT((HNUS_ZNOVA), __VA_ARGS__) MY_VA_OPT((PARENS (stop, ab+1, ugly ## a, __VA_ARGS__)), __VA_ARGS__)
 
 #define PARALEL(n, ...) {                                       \
+    byte blb = 0;\
     pt ab[n] = { };                                             \
     time_t acb[n] = { };                                 \
     bool stop = true;                                           \
@@ -61,6 +65,7 @@ typedef short pt;
         stop = false;                                           \
         EXPAND(HNUS(stop, ab, a, __VA_ARGS__, 1))               \
     }                                                           \
+    disamb: switch (blb){\
 }
 
 #define BEGIN_PT(p) switch(p){case 0: case 1:

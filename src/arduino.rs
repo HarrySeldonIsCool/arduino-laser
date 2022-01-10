@@ -48,8 +48,8 @@ where T: Serial + Default, U: Serial{
     Ok(T::deser(&buffer1))
 }
 
-pub fn test_struct() -> Result<(), std::io::Error>{
-    let mut port = serialport::new("/dev/ttyACM3", 115200).timeout(std::time::Duration::from_secs(1)).open()?;
+pub fn test_struct(portname: &str) -> Result<(), std::io::Error>{
+    let mut port = serialport::new(portname, 115200).timeout(std::time::Duration::from_secs(1)).open()?;
     wait_for_answer(&mut port)?;
     loop{
     let a: TimenPlaceStamp = send_n_get_n::<TimenPlaceStamp, u8>(&mut port, None)?;
@@ -60,26 +60,28 @@ pub fn test_struct() -> Result<(), std::io::Error>{
     Ok(())
 }
 
-fn send_n_get_vec<T, U>(port: &mut Box<dyn SerialPort>, sent: Option<U>, stop_or_times: StopOrTimes<T>) -> Result<Vec<T>, std::io::Error>
-where T: Serial + PartialEq + Copy + Default, U: Serial + PartialEq + Copy{
+fn send_n_get_vec<T, U>(port: &mut Box<dyn SerialPort>, sent: Option<U>, stop_or_times: StopOrTimes<T>, respond: bool) -> Result<Vec<T>, std::io::Error>
+where T: Serial + PartialEq + Copy + Default + std::fmt::Debug, U: Serial + PartialEq + Copy{
     let mut x = send_n_get_n(port, sent)?;
     let mut it_x = vec![x];
     match stop_or_times{
         Stop(stop) => {while x != stop{
-            x = send_n_get_n(port, Some(1u8))?;
+            x = send_n_get_n(port, if respond{Some(1u8)}else{None})?;
             it_x.push(x);
+            println!("recieved new data: {:?}", x);
         }
         it_x.pop();},
         Times(times) => for _i in 1..times{
-            x = send_n_get_n(port, Some(1u8))?;
+            x = send_n_get_n(port, if respond{Some(1u8)}else{None})?;
             it_x.push(x);
+            println!("recieved new data: {:?}", x);
         }
     }
     Ok(it_x)
 }
 
-pub fn get_raw(n: u32, dt: u32, dx: u32) -> Result<(Vec<TimenPlaceStamp>, f32, f32, f32, f32), std::io::Error>{
-    let mut port = serialport::new("/dev/ttyACM0", 115200).timeout(std::time::Duration::from_secs(1)).open()?;
+pub fn get_raw(portname: &str, n: u32, dt: u32, dx: u32) -> Result<(Vec<TimenPlaceStamp>, f32, f32, f32, f32), std::io::Error>{
+    let mut port = serialport::new(portname, 115200).timeout(std::time::Duration::from_secs(1)).open()?;
     wait_for_answer(&mut port)?;
     port.write(&n.to_le_bytes())?;
     std::thread::sleep(std::time::Duration::from_millis(200));
@@ -90,14 +92,15 @@ pub fn get_raw(n: u32, dt: u32, dx: u32) -> Result<(Vec<TimenPlaceStamp>, f32, f
     let n_0 = send_n_get_n::<f32, u8>(&mut port, None)?;
     let s_0 = send_n_get_n::<f32, u8>(&mut port, None)?;
 
-    let it_x = send_n_get_vec::<TimenPlaceStamp, u8>(&mut port, None, Stop(TimenPlaceStamp{time: 0, place: 0, a: 10000.0}))?;
+    let it_x = send_n_get_vec::<TimenPlaceStamp, u8>(&mut port, None, Stop(TimenPlaceStamp{time: 0, place: 0, a: 10000.0}), false)?;
 
     Ok((it_x[1..].to_vec(), it_x[0].a, a_0, n_0, s_0))
 }
 
-pub fn get_res(n: u32, dt: u32, dx: u32) -> Result<f32, std::io::Error>{
-    let (it_x, pwr, a_0, n_0, s_0) = get_raw(n, dt, dx)?;
-
+pub fn get_res(portname: &str, n: u32, dt: u32, dx: u32) -> Result<f32, std::io::Error>{
+    println!("starting");
+    let (it_x, pwr, a_0, n_0, s_0) = get_raw(portname ,n, dt, dx)?;
+    println!("data successfully obtained");
     let w = it_x.len() - 2*it_x
         .iter()
         .enumerate()
@@ -105,6 +108,7 @@ pub fn get_res(n: u32, dt: u32, dx: u32) -> Result<f32, std::io::Error>{
         .min_by(|(_, x),(_, y)| x.partial_cmp(y).unwrap()).unwrap().0;
     
 
+    println!("estimated w = {}\nprocessing start", w);
     let fit = process(&it_x, pwr, (w as f32)/2.0, a_0, n_0, s_0);
 
     plot("Intensity", "x", "I(x)")
