@@ -20,7 +20,7 @@
 }
 
 #define derive_recieve(x) x recieve_ ## x(){\
-  while(!Serial.available());
+  while(!Serial.available());\
   byte _my_buffer_intern[2] = { }; \
   Serial.readBytes(_my_buffer_intern, 2);\
   MsgPack::Unpacker unpacker; \
@@ -86,9 +86,7 @@ void loop(){
       pohybX(true, 1000);
       return;
     }
-    while (!Serial.available());
     int dt = recieve_int();
-    while (!Serial.available());
     int dx = recieve_int();
     measure(n, dt, dx);
   }
