@@ -100,7 +100,7 @@ pub fn get_raw(portname: &str, n: u32, dt: u32, dx: u32) -> Result<(Vec<TimenPla
 pub fn get_res(portname: &str, n: u32, dt: u32, dx: u32) -> Result<f32, std::io::Error>{
     println!("starting");
     let (it_x, pwr, a_0, n_0, s_0) = get_raw(portname ,n, dt, dx)?;
-    println!("data successfully obtained");
+    println!("data successfully obtained:\n{:?}", it_x);
     let w = it_x.len() - 2*it_x
         .iter()
         .enumerate()
